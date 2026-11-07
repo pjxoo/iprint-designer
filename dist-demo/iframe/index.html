@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>收银小票打印 · 方式 B（iframe + postMessage）</title>
+  <link rel="stylesheet" href="../demo.css" />
+</head>
+<body data-default-template="ticket-pos">
+  <header class="topbar">
+    <div class="topbar-actions">
+      <span class="pill" id="sdkBadge">设计器连接中…</span>
+      <button type="button" id="btnDocs" class="ghost">API 文档</button>
+      <button type="button" id="btnReload" class="ghost">重建实例</button>
+    </div>
+  </header>
+
+  <main>
+    <aside class="panel">
+      <section class="block">
+        <h2>打印模板</h2>
+        <label>
+          模板
+          <select id="templateSelect"></select>
+        </label>
+        <p class="hint" id="templateHint">—</p>
+      </section>
+
+      <section class="block">
+        <h2>单据数据</h2>
+        <label>
+          数据源
+          <select id="dataSourceSelect"></select>
+        </label>
+        <label>
+          业务 JSON
+          <textarea id="dataJson" spellcheck="false" rows="12"></textarea>
+        </label>
+        <div class="row">
+          <button type="button" id="btnApply" class="primary">应用数据</button>
+          <button type="button" id="btnReloadData" class="ghost">重载样例</button>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2>输出</h2>
+        <div class="row">
+          <button type="button" id="btnPreview" class="primary">打开预览</button>
+          <button type="button" id="btnClosePreview">关闭预览</button>
+        </div>
+        <div class="row">
+          <button type="button" id="btnPrint">打印</button>
+          <button type="button" id="btnExportHtml">导出 HTML</button>
+          <button type="button" id="btnPreviewBlocks">逐元素预览</button>
+        </div>
+        <p class="hint">
+          小票超出 80mm 纸高会连续出纸。设计：<code>defineDataSource</code> + <code>defineTemplates</code>。<br />
+          打开：<code>await call('load', { templateId, dataSourceId, data })</code>（两 id 必填）。<br />
+          换数：<code>await call('setData', { data })</code>（不传 dataSourceId）。
+        </p>
+      </section>
+    </aside>
+
+    <section class="stage">
+      <div class="stage-bar">
+        <span id="stageInfo">设计器挂载中…</span>
+      </div>
+      <div class="stage-canvas">
+        <div class="stage-loading" id="stageLoading" role="status" aria-live="polite">
+          <div class="stage-loading-spinner" aria-hidden="true"></div>
+          <span id="stageLoadingText">正在加载…</span>
+        </div>
+        <iframe
+          id="designer"
+          class="designer-host"
+          src="about:blank"
+          title="i-print-designer"
+        ></iframe>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-mask" id="docsModal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="docsTitle">
+      <header class="modal-head">
+        <h2 id="docsTitle">方式 B · iframe + postMessage</h2>
+        <span class="spacer"></span>
+        <button type="button" id="btnCloseDocs" class="icon" aria-label="关闭">×</button>
+      </header>
+      <div class="modal-body docs">
+        <p class="docs-lead">
+          与 SDK 共用同一份 <code>hostApi</code> 能力；设计器跑在 iframe
+          <code>/</code> 内，宿主通过 <code>postMessage</code> 调用。
+          <strong>设计</strong>：<code>defineDataSource</code> + <code>defineTemplates</code>。
+          <strong>预览·打印</strong>：<code>load</code> 须<strong>设计模版 id + 数据源模板 id</strong>；换数仅 <code>setData({ data })</code>。
+          样例数据经 <code>DemoAssets.loadCatalog()</code> 读 bundle。
+          本页须 <strong>http(s)</strong>，勿用 <code>file://</code>。
+        </p>
+
+        <table class="docs-params">
+          <caption>推荐接入顺序</caption>
+          <thead>
+            <tr><th scope="col">步骤</th><th scope="col">调用</th><th scope="col">作用</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td>等 <code>ready</code> → <code>await call('ping')</code></td>
+              <td>握手后再发业务指令</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td><code>defineDataSource</code> + <code>defineTemplates</code></td>
+              <td>设计：登记字段树 + 模版 JSON</td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td><code>load({ templateId, dataSourceId, data? })</code></td>
+              <td>预览·打印：两 id 必填</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td><code>setData({ data })</code> / 预览·打印</td>
+              <td>换业务数据或输出</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <article class="docs-api">
+          <h3>iframe / call / ping</h3>
+          <p class="docs-desc">收到 <code>{ type: 'ready' }</code> 后再 <code>call</code>。请求名与 SDK 方法同名；返回 Promise。</p>
+          <pre class="code"><code>&lt;iframe id="designer" src="/"&gt;&lt;/iframe&gt;
+
+// 宿主 → { source: 'i-print-host', type, requestId, payload }
+// 设计器 → { source: 'i-print-designer', type: 'response', requestId, ok, result }
+
+const { version } = await call('ping');
+// → { ok: true, version: '…' }</code></pre>
+        </article>
+
+        <article class="docs-api">
+          <h3>defineDataSource</h3>
+          <p class="docs-desc"><strong>设计</strong> · 登记数据源模板；不写业务数据。</p>
+          <pre class="code"><code>await call('defineDataSource', {
+  id: 'apparel',
+  name: '收银',
+  fields: [{ name: '单号', field: 'billNo' }],
+});
+// → { ok: true, id, name, fieldCount, arrayPaths }</code></pre>
+        </article>
+
+        <article class="docs-api">
+          <h3>defineTemplates</h3>
+          <p class="docs-desc"><strong>设计</strong> · 登记设计模版（来自宿主或 DemoAssets）。</p>
+          <pre class="code"><code>const catalog = await DemoAssets.loadCatalog();
+const template = await DemoAssets.readTemplate(
+  DemoAssets.findTemplate(catalog, 'ticket-pos'),
+);
+await call('defineTemplates', { templates: [template] });
+// → { ok: true, templateIds: ['ticket-pos'] }</code></pre>
+        </article>
+
+        <article class="docs-api">
+          <h3>load</h3>
+          <p class="docs-desc"><strong>预览·打印</strong> · <code>templateId</code> + <code>dataSourceId</code> 必填；<code>data</code> 可选。</p>
+          <pre class="code"><code>await call('load', {
+  templateId: template.id,
+  dataSourceId: 'apparel',
+  data: { billNo: 'T001', items: [] },
+});
+// → { ok: true, templateId, dataSourceId }</code></pre>
+        </article>
+
+        <article class="docs-api">
+          <h3>setData</h3>
+          <p class="docs-desc"><strong>预览·打印</strong> · 只传 <code>{ data }</code>，不传 <code>dataSourceId</code>。</p>
+          <pre class="code"><code>await call('setData', { data: { billNo: 'T002' } });
+// → { ok: true }</code></pre>
+        </article>
+
+        <article class="docs-api">
+          <h3>openPreview / closePreview</h3>
+          <p class="docs-desc">设计器内置预览 Modal；与宿主自建预览互斥。</p>
+          <pre class="code"><code>await call('closePreview');
+await call('openPreview');  // → { ok: true }</code></pre>
+        </article>
+
+        <article class="docs-api">
+          <h3>getPreviewData</h3>
+          <p class="docs-desc">逐元素预览数据（页内坐标 + html/text）。</p>
+          <pre class="code"><code>await call('closePreview');
+const data = await call('getPreviewData');</code></pre>
+        </article>
+
+        <article class="docs-api">
+          <h3>getPrintPages</h3>
+          <p class="docs-desc">分页 HTML + 完整 document。</p>
+          <pre class="code"><code>const { document } = await call('getPrintPages');</code></pre>
+        </article>
+
+        <article class="docs-api">
+          <h3>print</h3>
+          <p class="docs-desc">须在用户点击回调里 <code>await call('print')</code>。</p>
+          <pre class="code"><code>btn.onclick = async () => { await call('print'); };</code></pre>
+        </article>
+
+        <article class="docs-api">
+          <h3>ping</h3>
+          <p class="docs-desc">连接后探测版本（本 DEMO 在 connect 时调用）。</p>
+          <pre class="code"><code>const { version } = await call('ping');
+// → { ok: true, version: '…' }</code></pre>
+        </article>
+
+        <article class="docs-api">
+          <h3>典型链路</h3>
+          <p class="docs-desc">收银小票 DEMO：ready 后 define → load（两 id）→ setData。</p>
+          <pre class="code"><code>const catalog = await DemoAssets.loadCatalog();
+const template = await DemoAssets.readTemplate(
+  DemoAssets.findTemplate(catalog, 'ticket-pos'),
+);
+const schema = await DemoAssets.readDataSourceSchema(catalog, template.dataSourceId);
+const sample = await DemoAssets.readSample(catalog, template, schema.id);
+
+await call('defineDataSource', {
+  id: schema.id, name: schema.name, fields: schema.fields,
+});
+await call('defineTemplates', { templates: [template] });
+await call('load', {
+  templateId: template.id,
+  dataSourceId: schema.id,
+  data: sample.data,
+});
+await call('setData', { data: nextBill });
+await call('openPreview');</code></pre>
+        </article>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-mask" id="previewModal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
+      <header class="modal-head">
+        <h2 id="previewTitle">逐元素预览</h2>
+        <span id="previewMeta">0 页</span>
+        <span class="spacer"></span>
+        <button type="button" id="btnClosePreviewModal" class="icon" aria-label="关闭">×</button>
+      </header>
+      <div class="modal-body" id="previewList">
+        <p class="empty">没有可预览内容</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- ① 读库 ② DEMO 壳 ③ adapter（call → connect / disconnect / api） -->
+  <script src="../demo-assets.js"></script>
+  <script src="../demo-ui.js"></script>
+  <script src="./adapter.js"></script>
+</body>
+</html>

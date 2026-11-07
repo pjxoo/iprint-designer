@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>采购单打印 · 方式 A（embed 内嵌）</title>
+  <link rel="stylesheet" href="../demo.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-actions">
+      <span class="pill" id="sdkBadge">SDK 加载中…</span>
+      <button type="button" id="btnDocs" class="ghost">API 文档</button>
+      <button type="button" id="btnReload" class="ghost">重建实例</button>
+    </div>
+  </header>
+
+  <main>
+    <aside class="panel">
+      <section class="block">
+        <h2>打印模板</h2>
+        <label>
+          模板
+          <select id="templateSelect"></select>
+        </label>
+        <p class="hint" id="templateHint">—</p>
+      </section>
+
+      <section class="block">
+        <h2>单据数据</h2>
+        <label>
+          数据源
+          <select id="dataSourceSelect"></select>
+        </label>
+        <label>
+          业务 JSON
+          <textarea id="dataJson" spellcheck="false" rows="12"></textarea>
+        </label>
+        <div class="row">
+          <button type="button" id="btnApply" class="primary">应用数据</button>
+          <button type="button" id="btnReloadData" class="ghost">重载样例</button>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2>输出</h2>
+        <div class="row">
+          <button type="button" id="btnPreview" class="primary">打开预览</button>
+          <button type="button" id="btnClosePreview">关闭预览</button>
+        </div>
+        <div class="row">
+          <button type="button" id="btnPrint">打印</button>
+          <button type="button" id="btnExportHtml">导出 HTML</button>
+          <button type="button" id="btnPreviewBlocks">逐元素预览</button>
+        </div>
+        <p class="hint">
+          设计：<code>defineDataSource</code> + <code>defineTemplates</code>。<br />
+          打开：<code>load({ templateId, dataSourceId, data })</code>（两 id 必填）。<br />
+          换数：<code>setData({ data })</code>。
+        </p>
+      </section>
+    </aside>
+
+    <section class="stage">
+      <div class="stage-bar">
+        <span id="stageInfo">设计器挂载中…</span>
+      </div>
+      <div class="stage-canvas">
+        <div class="stage-loading" id="stageLoading" role="status" aria-live="polite">
+          <div class="stage-loading-spinner" aria-hidden="true"></div>
+          <span id="stageLoadingText">正在加载…</span>
+        </div>
+        <div id="designer" class="designer-host"></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-mask" id="docsModal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="docsTitle">
+      <header class="modal-head">
+        <h2 id="docsTitle">方式 A · embed 内嵌（单文件 SDK）</h2>
+        <span class="spacer"></span>
+        <button type="button" id="btnCloseDocs" class="icon" aria-label="关闭">×</button>
+      </header>
+      <div class="modal-body docs">
+        <p class="docs-lead">
+          宿主提供<strong>数据源模板</strong>（字段结构）与<strong>设计模版</strong>（版式 JSON）。
+          <strong>设计</strong>阶段用 <code>defineDataSource</code> + <code>defineTemplates</code> 登记，不写业务数据。
+          <strong>预览·打印</strong>阶段用 <code>load</code> 打开画布：必须同时带上<strong>设计模版 id</strong>与<strong>数据源模板 id</strong>；之后只换数用 <code>setData({ data })</code>，不要再传 <code>dataSourceId</code>。
+          库样例经 <code>DemoAssets.loadCatalog()</code> 读 <code>demo/bundle.js</code>（真源 <code>src/assets/library</code>）。
+        </p>
+
+        <table class="docs-params">
+          <caption>推荐接入顺序</caption>
+          <thead>
+            <tr><th scope="col">步骤</th><th scope="col">调用</th><th scope="col">作用</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td><code>mount('#designer', { mode })</code></td>
+              <td>挂载 SDK（同步首屏，返回即可调 api）</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td><code>defineDataSource</code> + <code>defineTemplates</code></td>
+              <td>设计：登记字段树 + 模版 JSON</td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td><code>load({ templateId, dataSourceId, data? })</code></td>
+              <td>预览·打印：两 id 必填，打开唯一入口</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td><code>setData({ data })</code> / 预览·打印 API</td>
+              <td>换业务数据或输出 HTML / 打印</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <article class="docs-api">
+          <h3>mount / unmount</h3>
+          <p class="docs-desc">单页仅一个实例；再次 <code>mount</code> 会先卸掉上一个。正式产物目录：<code>dist-demo/</code>（<code>npm run build:sdk</code>），脚本 <code>../sdk/iprint-designer.js</code>。</p>
+          <pre class="code"><code>&lt;script src="../sdk/iprint-designer.js"&gt;&lt;/script&gt;
+const instance = IPrintDesigner.mount('#designer', { mode: 'free', height: '100%' });
+// instance.element · instance.layoutMode · instance.unmount()
+IPrintDesigner.unmount();</code></pre>
+        </article>
+
+        <article class="docs-api">
+          <h3>defineDataSource</h3>
+          <p class="docs-desc"><strong>设计</strong> · 登记数据源模板（可多次；同 id 覆盖）。<code>fields</code> 与数据源面板同形；业务数据不要写在这里。</p>
+          <pre class="code"><code>const r = api.defineDataSource({
+  id: 'erp_purchase',
+  name: '采购单',
+  fields: [
+    { name: '采购单号', field: 'billNo' },
+    { name: '明细', field: 'lines', kind: 'array', fields: [
+      { name: '货号', field: 'sku' },
+    ]},
+  ],
+});
+// → { ok: true, id, name, fieldCount, arrayPaths }</code></pre>
+        </article>
+
+        <article class="docs-api">
+          <h3>defineTemplates</h3>
+          <p class="docs-desc"><strong>设计</strong> · 登记 1～N 份设计模版（同 id 覆盖；不打开画布）。模版对象来自宿主持久化或 DemoAssets。</p>
+          <pre class="code"><code>const catalog = await DemoAssets.loadCatalog();
+const meta = DemoAssets.findTemplate(catalog, 'document-purchase');
+const template = await DemoAssets.readTemplate(meta);
+
+api.defineTemplates({ templates: [template] });
+// → { ok: true, templateIds: ['document-purchase'] }</code></pre>
+        </article>
+
+        <article class="docs-api">
+          <h3>load</h3>
+          <p class="docs-desc"><strong>预览·打印</strong> · 打开设计模版并绑数据源模板。<code>templateId</code> 与 <code>dataSourceId</code> 均必填；<code>data</code> 可选。</p>
+          <pre class="code"><code>api.load({
+  templateId: template.id,        // 必填 · 设计模版
+  dataSourceId: 'erp_purchase',   // 必填 · 数据源模板
+  data: { billNo: 'CG001', lines: [] }, // 可选
+});
+// → { ok: true, templateId, dataSourceId }</code></pre>
+        </article>
+
+        <article class="docs-api">
+          <h3>setData</h3>
+          <p class="docs-desc"><strong>预览·打印</strong> · 只换当前页业务根对象；<strong>不要</strong>传 <code>dataSourceId</code>。</p>
+          <pre class="code"><code>api.setData({ data: { billNo: 'CG002', lines: [{ sku: 'S-1', qty: 3 }] } });
+// → { ok: true }</code></pre>
+        </article>
+
+        <article class="docs-api">
+          <h3>openPreview / closePreview</h3>
+          <p class="docs-desc">设计器内置打印预览 Modal（导出 HTML/PDF/打印）。与宿主自建「逐元素预览」互斥，打开前请先关掉另一侧遮罩。</p>
+          <pre class="code"><code>api.closePreview();
+api.openPreview();  // → { ok: true }
+api.closePreview(); // → { ok: true }</code></pre>
+        </article>
+
+        <article class="docs-api">
+          <h3>getPreviewData</h3>
+          <p class="docs-desc">逐元素预览：页 + 几何 + 已绑定数据的 <code>html</code> / <code>text</code>（页内坐标）。</p>
+          <pre class="code"><code>api.closePreview();
+const data = api.getPreviewData();
+// data.pages[].elements[] → x, y, width, height, html, text, …</code></pre>
+        </article>
+
+        <article class="docs-api">
+          <h3>getPrintPages</h3>
+          <p class="docs-desc">分页打印稿：<code>css</code>、每页 <code>pages[]</code> 片段、完整 <code>document</code> HTML。</p>
+          <pre class="code"><code>const { document, css, pages } = api.getPrintPages();
+const blob = new Blob([document], { type: 'text/html;charset=utf-8' });</code></pre>
+        </article>
+
+        <article class="docs-api">
+          <h3>print</h3>
+          <p class="docs-desc">在用户点击事件链里直接调用，调起系统打印对话框。</p>
+          <pre class="code"><code>document.getElementById('btnPrint').onclick = () => api.print();
+// → { ok: true }</code></pre>
+        </article>
+
+        <article class="docs-api">
+          <h3>ping</h3>
+          <p class="docs-desc">连通性与版本（SDK：<code>IPrintDesigner.api.ping()</code> 或 <code>IPrintDesigner.version</code>）。</p>
+          <pre class="code"><code>const { version } = IPrintDesigner.api.ping();
+// → { ok: true, version: '…' }（同 IPrintDesigner.version）</code></pre>
+        </article>
+
+        <article class="docs-api">
+          <h3>典型链路</h3>
+          <p class="docs-desc">与本 DEMO 左侧面板一致：先 define，再 load（两 id），应用数据走 setData。</p>
+          <pre class="code"><code>const catalog = await DemoAssets.loadCatalog();
+const template = await DemoAssets.readTemplate(
+  DemoAssets.findTemplate(catalog, 'document-purchase'),
+);
+const schema = await DemoAssets.readDataSourceSchema(catalog, template.dataSourceId);
+const sample = await DemoAssets.readSample(catalog, template, schema.id);
+
+IPrintDesigner.mount('#designer', { mode: 'free' });
+api.defineDataSource({ id: schema.id, name: schema.name, fields: schema.fields });
+api.defineTemplates({ templates: [template] });
+api.load({
+  templateId: template.id,
+  dataSourceId: schema.id,
+  data: sample.data,
+});
+api.setData({ data: nextBill });
+api.openPreview();</code></pre>
+        </article>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-mask" id="previewModal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
+      <header class="modal-head">
+        <h2 id="previewTitle">逐元素预览</h2>
+        <span id="previewMeta">0 页</span>
+        <span class="spacer"></span>
+        <button type="button" id="btnClosePreviewModal" class="icon" aria-label="关闭">×</button>
+      </header>
+      <div class="modal-body" id="previewList">
+        <p class="empty">没有可预览内容</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- ① 读库 ② DEMO 壳 ③ SDK ④ adapter（connect / disconnect / api） -->
+  <script src="../demo-assets.js"></script>
+  <script src="../demo-ui.js"></script>
+  <script src="../sdk/iprint-designer.js"></script>
+  <script src="./adapter.js"></script>
+</body>
+</html>
