@@ -1,121 +1,54 @@
 # i-print-designer
 
-Web 打印设计器 **运行产物包**（不含源码）。用于独立部署完整设计器站点，或把单文件 SDK 嵌进业务页。
+**Web 打印设计器**：在浏览器里设计单据、标签、小票、报表等可打印版式，支持预览、导出与打印。可独立部署完整站点，也可把单文件 SDK 嵌进现有业务系统。
 
-版本：`0.1.0`
+![设计器界面](./assets/designer.png)
 
----
+## 产品能力
 
-## 目录
+- **两种页面布局**：自由布局（坐标摆放，适合标签 / 单据）与流式布局（纵向流式排版）
+- **所见即所得画布**：拖拽元件、对齐均分、图层组合、辅助线吸附、缩放与多页纸带
+- **数据源绑定**：字段树、循环行、函数与页号等，设计与业务数据分离
+- **预览与输出**：设计器内预览、导出分页 HTML、系统打印
+- **两种接入形态**
+  - **完整站点**（`dist/`）：含 Monaco 等完整编辑能力，适合独立打开或 iframe 隔离
+  - **单文件 SDK**（`dist-demo/sdk/`）：嵌进宿主页，直接 `mount` / `api.xxx` 调用
 
-```
-iprint-designer/
-├── README.md          ← 本说明
-├── dist/              ← 主应用整站（含 Monaco，可独立打开）
-│   ├── index.html
-│   └── assets/
-└── dist-demo/         ← 单文件 SDK + 可运行 DEMO
-    ├── README.md      ← SDK / DEMO 详细说明
-    ├── sdk/iprint-designer.js
-    ├── embed/         ← 方式 A：采购单（SDK 内嵌）
-    ├── iframe/        ← 方式 B：收银小票（iframe + postMessage）
-    └── …
-```
+## 本包内容
 
-| 目录 | 用途 | 怎么开 |
-|------|------|--------|
-| `dist/` | 完整设计器站点（自由 / 流式编辑、完整代码编辑） | 静态托管后打开根路径 |
-| `dist-demo/` | SDK 内嵌 + 接入示例 | 见下方；细节见 [`dist-demo/README.md`](./dist-demo/README.md) |
+| 目录 | 说明 |
+|------|------|
+| `dist/` | 主应用整站产物（打开即可用完整设计器） |
+| `dist-demo/` | 单文件 SDK + 可运行 DEMO（embed / iframe） |
+| `assets/` | 产品示意与联系二维码 |
 
-二者分开交付：`dist` 不含 SDK；`dist-demo` 不含主应用整站。
-
----
-
-## 快速体验
-
-在本目录开两个静态服务（或把整个文件夹丢进 nginx / IIS）：
+本地快速打开：
 
 ```bash
-# 终端 1：完整设计器
-npx serve dist -p 4173
-
-# 终端 2：SDK DEMO
-npx serve dist-demo -p 4174
+npx serve dist -p 4173        # 完整设计器 → http://localhost:4173/
+npx serve dist-demo -p 4174   # SDK DEMO   → http://localhost:4174/embed/
 ```
 
-- 主应用：<http://localhost:4173/>
-- SDK DEMO（推荐先看）：<http://localhost:4174/embed/>
-- iframe DEMO：需与主应用**同源**部署后再开 `dist-demo/iframe/`（勿 `file://`）
+## 接入与 API
 
-`embed` 页也可直接用浏览器打开 `dist-demo/embed/index.html`（`file://`，视浏览器策略而定）。
+具体挂载方式、完整 API、DEMO 说明请看：
 
----
+**→ [`dist-demo/README.md`](./dist-demo/README.md)**
 
-## 两种接入方式
+其中包含：
 
-### 方式 A：单文件 SDK（推荐内嵌）
-
-把设计器挂进现有业务页，直接函数调用：
-
-```html
-<div id="designer" style="height: 640px"></div>
-<script src="./dist-demo/sdk/iprint-designer.js"></script>
-<script>
-  const { api } = IPrintDesigner;
-  IPrintDesigner.mount('#designer', {
-    mode: 'free', // 'free' | 'flow'
-    onSave: async (payload) => {
-      // payload.dataSource · payload.template · payload.data
-    },
-  });
-
-  api.defineDataSource({ id: 'erp_purchase', name: '采购单', fields: [/* … */] });
-  api.defineTemplates({ templates: [/* 设计模版 JSON */] });
-  api.load({
-    templateId: 'document-purchase',
-    dataSourceId: 'erp_purchase',
-    data: { /* 业务 JSON */ },
-  });
-  api.openPreview();
-</script>
-```
-
-完整可运行示例：`dist-demo/embed/`（采购单 · A4）。
-
-要点：
-
-- `mount` 返回后即可调 `api`，无需再等 `ready`
-- 同页单实例；再次 `mount` 会先卸掉上一个
-- SDK **不含 Monaco**（代码编辑降级为文本域）；需要完整 Monaco 用方式 B
-
-### 方式 B：iframe + `postMessage`
-
-需要 CSS/JS 隔离或完整 Monaco 时，用主应用 `dist/` 放进 iframe，宿主经 `postMessage` 调同一套能力（方法名 / payload 与 SDK 一致）。
-
-完整可运行示例：`dist-demo/iframe/`（收银小票 · 80mm）。须 **http(s)**，且 iframe 能打开已托管的 `dist/index.html`。
+- 方式 A：单文件 SDK 嵌入业务页（参考 `dist-demo/embed/`）
+- 方式 B：iframe + `postMessage`（参考 `dist-demo/iframe/`，需配合 `dist/`）
+- `mount` / `load` / `setData` / 预览 / 打印 / 保存回调等用法
 
 ---
 
-## 常用 API（两种方式同名）
+## 交流与支持
 
-| 能力 | SDK | iframe |
-|------|-----|--------|
-| 挂载 / 卸载 | `IPrintDesigner.mount` / `unmount` | 加载 / 销毁 iframe |
-| 登记数据源 | `api.defineDataSource(…)` | `call('defineDataSource', …)` |
-| 登记模版 | `api.defineTemplates(…)` | `call('defineTemplates', …)` |
-| 打开模版 | `api.load({ templateId, dataSourceId, data? })` | 同左 |
-| 换业务数据 | `api.setData({ data })` | 同左 |
-| 预览 / 打印 | `api.openPreview()` / `api.print()` | 同左 |
-| 导出分页 HTML | `api.getPrintPages()` | 同左 |
-| 保存回调 | `mount({ onSave })` 或 `api.setOnSave` | 监听 `type: 'save'` |
+欢迎加群或加好友交流使用问题与需求。
 
-更细的字段与协议见源码工程 `docs/api.md`，或打开 DEMO 顶栏「API 文档」。
+**QQ 群**：`1105546827`
 
----
+**微信**：`xinnianpeng`（加好友时请备注来意；也可扫码）
 
-## 注意
-
-1. **数据不落盘**：状态在内存，持久化由宿主 `onSave` / 自有接口负责。
-2. **演示库** `dist-demo/bundle.js` 仅供 DEMO；生产请换成自己的模版与数据接口。
-3. **跨域**：iframe 方案里 `postMessage` 的 `targetOrigin` 生产环境请按实际域名收紧。
-4. 本目录为构建拷贝；改功能请在源码仓库重建后再覆盖 `dist/`、`dist-demo/`。
+![微信二维码](./assets/wechat.png)
